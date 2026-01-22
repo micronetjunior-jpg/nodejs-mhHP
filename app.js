@@ -1,6 +1,6 @@
 import express from "express";
 import fetch from "node-fetch";
-import { initMediasoup, createAnswerFromOffer } from "./mediasoup.js";
+import { initMediasoup, createAnswerFromOffer } from "mediasoup.js";
 import "dotenv/config";
 
 const app = express();
