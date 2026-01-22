@@ -1,21 +1,56 @@
-const express = require('express');
-const path = require('path');
-const indexRouter = require('./routes/index');
+import express from "express";
+import fetch from "node-fetch";
+import { initMediasoup, createAnswerFromOffer } from "./mediasoup.js";
+import "dotenv/config";
 
 const app = express();
-const PORT = 3000;
+app.use(express.json());
 
-// Serve static files from the "public" directory
-app.use(express.static(path.join(__dirname, 'public')));
+await initMediasoup(process.env.PUBLIC_IP);
 
-// Use the router for handling routes
-app.use('/', indexRouter);
+app.post("/webhook", async (req, res) => {
+  try {
+    const change = req.body.entry?.[0]?.changes?.[0]?.value;
+    const call = change?.calls?.[0];
 
-// Catch-all route for handling 404 errors
-app.use((req, res, next) => {
-    res.status(404).sendFile(path.join(__dirname, 'views', '404.html'));
-  });
+    if (!call || call.event !== "connect") {
+      return res.sendStatus(200);
+    }
 
-app.listen(PORT, () => {
-  console.log(`Server running at http://localhost:${PORT}/`);
+    console.log("📞 Incoming call", call.id);
+
+    const sdpOffer = call.session.sdp;
+
+    const sdpAnswer = await createAnswerFromOffer(
+      sdpOffer,
+      process.env.PUBLIC_IP
+    );
+
+    const url = `https://graph.facebook.com/v19.0/${process.env.PHONE_NUMBER_ID}/calls/${call.id}`;
+
+    const metaResp = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${process.env.META_TOKEN}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        messaging_product: "whatsapp",
+        sdp_type: "answer",
+        sdp: sdpAnswer
+      })
+    });
+
+    const text = await metaResp.text();
+    console.log("📡 Meta response:", text);
+
+    res.sendStatus(200);
+  } catch (err) {
+    console.error("❌ Error:", err);
+    res.sendStatus(500);
+  }
+});
+
+app.listen(process.env.PORT, () => {
+  console.log("🚀 Server listening on", process.env.PORT);
 });
