@@ -1,7 +1,7 @@
 import express from "express";
 import fetch from "node-fetch";
 import { initMediasoup, createAnswerFromOffer } from "./routes/mediasoup.js";
-import "dotenv/config";
+//import "dotenv/config";
 
 const app = express();
 app.use(express.json());
